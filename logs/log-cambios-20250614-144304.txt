@@ -1,0 +1,85 @@
+﻿**********************
+Inicio de la transcripción de Windows PowerShell
+Hora de inicio: 20250614144304
+Nombre de usuario: MICROSOFT\Microsoft
+Usuario RunAs: MICROSOFT\Microsoft
+Nombre de la configuración: 
+Máquina: MICROSOFT (Microsoft Windows NT 10.0.26100.0)
+Aplicación host: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe
+Id. de proceso: 6228
+PSVersion: 5.1.26100.4061
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.4061
+BuildVersion: 10.0.26100.4061
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+La transcripción ha comenzado. El archivo de salida es .\logs\log-cambios-20250614-144304.txt
+--- Iniciando el script de gestion de ACLs ---
+Fecha y Hora: 06/14/2025 14:43:04
+Log de esta sesion se guardara en: .\logs\log-cambios-20250614-144304.txt
+
+[MODO APLICAR PERMISOS INICIADO]
+
+[Paso 2/5] Creando respaldo de ACLs actuales en '.\backups\backup-permisos-20250614-144304.txt'...
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_0363db5f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_4714a2de
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_b4aec34b
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_f4aa385a
+Se procesaron correctamente 5 archivos; error al procesar 0 archivos
+ Respaldo creado exitosamente.
+
+[Paso 3/5] Limpiando permisos existentes...
+DETALLADO: Deshabilitando herencia de permisos en 'C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f'.
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_0363db5f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_4714a2de
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_b4aec34b
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_f4aa385a
+Se procesaron correctamente 5 archivos; error al procesar 0 archivos
+DETALLADO: Buscando y eliminando grupos con permisos 'FullControl'.
+   -> Removiendo 'FullControl' del grupo/usuario: NT AUTHORITY\SYSTEM
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_0363db5f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_4714a2de
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_b4aec34b
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_f4aa385a
+Se procesaron correctamente 5 archivos; error al procesar 0 archivos
+   -> Removiendo 'FullControl' del grupo/usuario: BUILTIN\Administradores
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_0363db5f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_4714a2de
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_b4aec34b
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_f4aa385a
+Se procesaron correctamente 5 archivos; error al procesar 0 archivos
+   -> Removiendo 'FullControl' del grupo/usuario: MICROSOFT\usuario1
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_0363db5f
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_4714a2de
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_b4aec34b
+archivo procesado: C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f\dir_f4aa385a
+Se procesaron correctamente 5 archivos; error al procesar 0 archivos
+ Limpieza de permisos completada.
+
+[Paso 4/5] Aplicando permisos de Linea Base desde '.\config\config-lb.csv'...
+   -> Aplicando permiso ',RX' a 'BUILTIN\Usuarios'...
+
+   -> Aplicando permiso 'M' a 'NT AUTHORITY\Authenticated Users'...
+
+   -> Aplicando permiso 'F' a 'NT AUTHORITY\SYSTEM'...
+
+   -> Aplicando permiso 'F' a 'BUILTIN\Administradores'...
+
+ Permisos de linea base aplicados.
+
+[Paso 5/5] Aplicando permisos Especificos desde '.\config\config-group.csv'...
+   -> Aplicando permiso '(OI)(CI)RX' a 'MICROSOFT\usuario1'...
+
+ Permisos especificos aplicados.
+**********************
+Fin de la transcripción de Windows PowerShell
+Hora de finalización: 20250614144305
+**********************
