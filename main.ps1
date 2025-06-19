@@ -234,7 +234,3 @@ try {
         Stop-Transcript
     }
 }
-
-
-# .\script1.ps1 -RutaObjetivo "E:\BP_SFTP\Aplicativos\Bancs" -Verbose
-# .\script1.ps1 -Rollback -RutaObjetivo "E:\BP_SFTP\Aplicativos" -RutaBackup ".\backups\" -Verbose
