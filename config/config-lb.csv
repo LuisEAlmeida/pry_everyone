@@ -1,5 +1,6 @@
-Grupo,Permiso
-"BUILTIN\Usuarios",",RX"
+"Grupo o Usuario",Permisos
+"BUILTIN\Usuarios","RX"
 "NT AUTHORITY\Authenticated Users","M"
 "NT AUTHORITY\SYSTEM","F"
 "BUILTIN\Administradores","F"
+"PC-ALM\usuario2","RX"

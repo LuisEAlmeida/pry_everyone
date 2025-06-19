@@ -2,7 +2,7 @@
 .SYNOPSIS
     Gestiona los permisos (ACL) de una carpeta de forma controlada y auditable.
 .DESCRIPTION
-    Este script esta diseñado para estandarizar los permisos de una estructura de carpetas. Sus funciones principales son:
+    Este script esta diseñado para estandarizar los permisos de una estructura de carpetas NTFS. Sus funciones principales son:
     1. Respaldar los permisos actuales antes de cualquier cambio.
     2. Eliminar la herencia de permisos y remover accesos de tipo "Full Control" para grupos.
     3. Aplicar un conjunto de permisos base desde un archivo CSV.
@@ -13,40 +13,35 @@
     El script opera en dos modos:
     - MODO APLICAR (por defecto): Ejecuta el flujo completo de respaldo, limpieza y aplicacion de permisos.
     - MODO ROLLBACK (-Rollback): Restaura los permisos utilizando un archivo de respaldo previo.
+
 .PARAMETER RutaObjetivo
-    La ruta completa de la carpeta raiz donde se aplicaran los cambios. Este parametro es obligatorio.
+    Ruta completa de la carpeta raiz donde se aplicaran los cambios. Obligatorio.
 .PARAMETER CSV_LineaBase
-    Ruta al archivo CSV que contiene los permisos de linea base. Por defecto, busca "config-lb.csv" en la misma carpeta del script.
-    El CSV debe tener las columnas: "Grupo", "Permiso".
+    Ruta al archivo CSV que contiene los permisos de linea base. Por defecto, ".\config\config-lb.csv".
+    El CSV debe tener las columnas: "Grupo o Usuario", "Permisos".
 .PARAMETER CSV_Grupos
-    Ruta al archivo CSV que contiene los permisos especificos para grupos o usuarios. Por defecto, busca "config-group.csv".
+    Ruta al archivo CSV que contiene los permisos especificos para grupos o usuarios. Por defecto, ".\config\config-group.csv".
     El CSV debe tener las columnas: "Grupo o Usuario", "Permisos".
 .PARAMETER Rollback
     Switch que activa el modo de restauracion. Si se usa, es necesario proporcionar el parametro -RutaBackup.
 .PARAMETER RutaBackup
     Ruta completa al archivo de respaldo de ACL (generado por el script) que se usara para la restauracion.
     Es obligatorio cuando se usa el switch -Rollback.
+
 .EXAMPLE
-    # EJEMPLO 1: Ejecutar el flujo completo sobre la carpeta "C:\Everyone\BP_TEST\SFTP_BP"
     .\main.ps1 -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP" -Verbose
-
 .EXAMPLE
-    # EJEMPLO 2: Ejecutar usando rutas personalizadas para los archivos CSV
-    .\main.ps1 -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP" -CSV_LineaBase "C:\Everyone\BP_TEST\config-lb.csv" -CSV_Grupos "C:\Everyone\BP_TEST\config-group.csv" -Verbose
-
+    .\main.ps1 -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP" -CSV_LineaBase "C:\config-lb.csv" -CSV_Grupos "C:\config-group.csv" -Verbose
 .EXAMPLE
-    # EJEMPLO 3: Ejecutar un Rollback para restaurar los permisos
-    # Es necesario indicar la ruta del archivo de respaldo generado en una ejecucion anterior.
-    .\main.ps1 -Rollback -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP" -RutaBackup ".\backup-permisos-20241028-153000.txt" -Verbose
+    .\main.ps1 -Rollback -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP" -RutaBackup ".\backups\backup-permisos-20241028-153000.txt" -Verbose
 
 .NOTES
-    Autor: Gemini
-    Version: 1.0
     Dependencias: icacls.exe (incluido en Windows). Ejecutar como Administrador para evitar errores de acceso.
 #>
+
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory = $true, HelpMessage = "Introduce la ruta de la carpeta objetivo.")]
+    [Parameter(Mandatory = $true, HelpMessage = "Introduce la ruta de la carpeta a procesar")]
     [string]$RutaObjetivo,
 
     [Parameter(Mandatory = $false, HelpMessage = "Ruta al CSV con permisos base.")]
@@ -62,170 +57,184 @@ param (
     [string]$RutaBackup
 )
 
-#------------------------------------------------------------------------------------------------------
-# Punto 6: Registro de Cambios (Log)
-# Se inicia al principio para capturar absolutamente todo el proceso.
-#------------------------------------------------------------------------------------------------------
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$logPath = ".\logs\log-cambios-$timestamp.txt"
+# -------------------------------------------------------------------------------------------------------
+# Comprobacion de privilegios de administrador
+# -------------------------------------------------------------------------------------------------------
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Warning "Debes ejecutar este script como Administrador."
+    exit 1
+}
+
+# -------------------------------------------------------------------------------------------------------
+# Crear carpetas para backups y logs si no existen
+# -------------------------------------------------------------------------------------------------------
+$backupDir = ".\backups"
+$logDir = ".\logs"
+
+if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir | Out-Null }
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+
+# -------------------------------------------------------------------------------------------------------
+# Inicializacion de log
+# -------------------------------------------------------------------------------------------------------
+$timestamp = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$logPath = "$logDir\log-cambios-$timestamp.txt"
+$transcriptStarted = $false
+
 try {
     Start-Transcript -Path $logPath -Append
-    Write-Host "--- Iniciando el script de gestion de ACLs ---" -ForegroundColor Green
+    $transcriptStarted = $true
+    Write-Host "`n----- Iniciando el Script para gestion de permisos -----" -ForegroundColor Cyan
     Write-Host "Fecha y Hora: $(Get-Date)"
-    Write-Host "Log de esta sesion se guardara en: $logPath"
+    Write-Host "Log de esta sesion se guardara en:"
+    Write-Host "`t$logPath"
 }
 catch {
-    Write-Error "No se pudo iniciar el log (Start-Transcript). Verifica los permisos en la carpeta actual."
-    # Si el log no puede iniciar, detenemos la ejecucion para evitar acciones no registradas.
+    Write-Error "No se pudo iniciar el log (Start-Transcript). Verifica los permisos en la carpeta actual." -ForegroundColor Red
     exit 1
 }
-
-
-#------------------------------------------------------------------------------------------------------
-# Validaciones Iniciales
-#------------------------------------------------------------------------------------------------------
-if (-not (Test-Path -Path $RutaObjetivo -PathType Container)) {
-    Write-Error "La ruta objetivo '$RutaObjetivo' no existe o no es una carpeta. Abortando script."
-    Stop-Transcript
-    exit 1
-}
-
-
-#------------------------------------------------------------------------------------------------------
-# Punto 7: Logica de Rollback (Opcional)
-# Si se especifica -Rollback, el script solo ejecuta esta seccion.
-#------------------------------------------------------------------------------------------------------
-if ($Rollback.IsPresent) {
-    Write-Host "`n[MODO ROLLBACK ACTIVADO]" -ForegroundColor Yellow
-
-    if (-not ($PSBoundParameters.ContainsKey('RutaBackup'))) {
-        Write-Error "Para ejecutar el Rollback, debes proporcionar la ruta del archivo de respaldo con el parametro -RutaBackup."
-        Stop-Transcript
-        exit 1
-    }
-
-    if (-not (Test-Path -Path $RutaBackup -PathType Leaf)) {
-        Write-Error "El archivo de respaldo '$RutaBackup' no fue encontrado. Abortando rollback."
-        Stop-Transcript
-        exit 1
-    }
-
-    Write-Host "Restaurando permisos en '$RutaObjetivo' desde el archivo '$RutaBackup'..." -ForegroundColor Cyan
-    try {
-        # El comando /c continua aunque encuentre errores. /t aplica recursivamente.
-        icacls $RutaObjetivo /restore $RutaBackup /t /c
-        Write-Host " Rollback completado exitosamente." -ForegroundColor Green
-    }
-    catch {
-        Write-Error "Ocurrio un error durante la ejecucion de icacls /restore. Revisa el log para mas detalles."
-    }
-
-    Write-Host "--- Fin del script ---"
-    Stop-Transcript
-    # Termina la ejecucion del script aqui, ya que el rollback esta hecho.
-    exit 0
-}
-
-# --- Si no es Rollback, se ejecuta el flujo principal ---
-
-Write-Host "`n[MODO APLICAR PERMISOS INICIADO]" -ForegroundColor Green
 
 try {
-    #------------------------------------------------------------------------------------------------------
-    # Punto 2: Respaldo de ACLs Actuales
-    # Crea un archivo de texto con los permisos actuales para un posible rollback manual o automatico.
-    #------------------------------------------------------------------------------------------------------
-    $backupPath = ".\backups\backup-permisos-$timestamp.txt"
-    Write-Host "`n[Paso 2/5] Creando respaldo de ACLs actuales en '$backupPath'..." -ForegroundColor Cyan
-    
-    # /save guarda los ACLs. /t es para que sea recursivo. /c para continuar en caso de errores.
-    icacls $RutaObjetivo /save $backupPath /t /c
-    
-    Write-Host " Respaldo creado exitosamente." -ForegroundColor Green
+    # ---------------------------------------------------------------------------------------------------
+    # Validaciones Iniciales
+    # ---------------------------------------------------------------------------------------------------
+    if (-not (Test-Path -Path $RutaObjetivo -PathType Container)) {
+        Write-Error "La ruta objetivo '$RutaObjetivo' no existe o no es una carpeta. Abortando script." -ForegroundColor Red
+        throw
+    }
 
-    #------------------------------------------------------------------------------------------------------
-    # Punto 3: Eliminar Herencia y Grupos con Full Control
-    # Este es el paso mas delicado. Primero se rompe la herencia y luego se eliminan permisos explicitos.
-    #------------------------------------------------------------------------------------------------------
-    Write-Host "`n[Paso 3/5] Limpiando permisos existentes..." -ForegroundColor Cyan
-    
-    Write-Verbose "Deshabilitando herencia de permisos en '$RutaObjetivo'."
-    # /inheritance:r copia los permisos heredados como explicitos y rompe la herencia.
-    # Es mas seguro que /inheritance:d que simplemente los quita.
-    icacls $RutaObjetivo /inheritance:r /t /c
-    
-    Write-Verbose "Buscando y eliminando grupos con permisos 'FullControl'."
-    $acl = Get-Acl -Path $RutaObjetivo
-    $fullControlRules = $acl.Access | Where-Object { $_.FileSystemRights -eq "FullControl" -and $_.IdentityReference.Value -notlike "S-1-5-*" } # Excluir SIDs conocidos de sistema
+    # ---------------------------------------------------------------------------------------------------
+    # Rollback (Restauracion de permisos)
+    # ---------------------------------------------------------------------------------------------------
+    if ($Rollback.IsPresent) {
+        Write-Host "`n----- MODO ROLLBACK ACTIVADO -----" -ForegroundColor Cyan
 
-    if ($fullControlRules.Count -gt 0) {
-        foreach ($rule in $fullControlRules) {
-            $identity = $rule.IdentityReference.Value
-            Write-Host "   -> Removiendo 'FullControl' del grupo/usuario: $identity" -ForegroundColor Yellow
-            # /remove:g quita permisos para un grupo.
-            icacls $RutaObjetivo /remove:g "$identity" /t /c
+        if (-not $RutaBackup) {
+            Write-Error "Para ejecutar el Rollback, debes proporcionar la ruta del archivo de respaldo con el parametro -RutaBackup." -ForegroundColor Red
+            throw
         }
-    } else {
-        Write-Host "   -> No se encontraron grupos con 'FullControl' para eliminar."
-    }
-    Write-Host " Limpieza de permisos completada." -ForegroundColor Green
 
-    #------------------------------------------------------------------------------------------------------
-    # Punto 4: Aplicar Permisos de Linea Base desde CSV
-    # Lee el primer CSV y aplica los permisos base.
-    #------------------------------------------------------------------------------------------------------
-    Write-Host "`n[Paso 4/5] Aplicando permisos de Linea Base desde '$CSV_LineaBase'..." -ForegroundColor Cyan
-    if (-not (Test-Path -Path $CSV_LineaBase)) {
-        throw "El archivo CSV de linea base '$CSV_LineaBase' no fue encontrado."
+        if (-not (Test-Path -Path $RutaBackup -PathType Leaf)) {
+            Write-Error "El archivo de respaldo '$RutaBackup' no fue encontrado. Abortando rollback." -ForegroundColor Red
+            throw
+        }
+
+        Write-Host "`nRestaurando permisos:" -ForegroundColor Blue
+        Write-Host "`tEn:'$RutaObjetivo'" -ForegroundColor Blue
+        Write-Host "`tDe:'$RutaBackup'" -ForegroundColor Blue
+
+        try {
+            icacls $RutaObjetivo /restore $RutaBackup /t /c
+            Write-Host "`nRollback completado exitosamente.`n" -ForegroundColor Green
+        }
+        catch {
+            Write-Error "Ocurrio un error durante la ejecucion de icacls /restore. Revisa el log para mas detalles." -ForegroundColor Red
+            throw
+        }
+
+        return
     }
-    
+
+    # ---------------------------------------------------------------------------------------------------
+    # Respaldo de ACLs Actuales
+    # ---------------------------------------------------------------------------------------------------
+    $backupPath = "$backupDir\backup-permisos-$timestamp.txt"
+    Write-Host "`n----- 1. Creando un Backup de los permisos NTFS -----" -ForegroundColor Cyan
+    Write-Host "Archivo con los Backups: '$backupPath'" -ForegroundColor Blue
+    icacls $RutaObjetivo /save $backupPath /t /c
+    Write-Host "Respaldo creado exitosamente." -ForegroundColor Green
+
+    # ---------------------------------------------------------------------------------------------------
+    # Tomar Propiedad y Romper Herencia
+    # ---------------------------------------------------------------------------------------------------
+    $usuarioActual = "$($env:USERDOMAIN)\$($env:USERNAME)"
+    Write-Host "`n----- 2. Tomando propiedad y deshabilitando herencia -----" -ForegroundColor Cyan
+
+    # Cambiar la S por la Y en caso de sistemas en idioma ingles
+    takeown /F "$RutaObjetivo" /R /D S | Out-Null
+    icacls "$RutaObjetivo" /setowner "$usuarioActual" /t /c | Out-Null
+    icacls "$RutaObjetivo" /inheritance:r /t /c | Out-Null
+    Write-Host "Propiedad asignada y herencia eliminada." -ForegroundColor Green
+
+    # ---------------------------------------------------------------------------------------------------
+    # Limpiar permisos explicitos (excepto usuario actual) - Recursivo
+    # ---------------------------------------------------------------------------------------------------
+    Write-Host "`n----- 3. Limpiando permisos explicitos -----" -ForegroundColor Cyan
+
+    $allItems += Get-Item -Path $RutaObjetivo  # Agrega la carpeta raiz
+
+    foreach ($item in $allItems) {
+        $acl = Get-Acl -Path $item.FullName
+        $identidades = $acl.Access | Select-Object -ExpandProperty IdentityReference | Sort-Object -Unique
+        $usuarioTienePermiso = $false
+
+        foreach ($identidad in $identidades) {
+            if ($identidad -eq $usuarioActual) {
+                $usuarioTienePermiso = $true
+                Write-Host "Se conservan los permisos del usuario actual: $usuarioActual en $($item.FullName)" -ForegroundColor Yellow
+            } else {
+                Write-Host "Eliminando permisos de: $identidad en $($item.FullName)" -ForegroundColor DarkGray
+                icacls $item.FullName /remove "$identidad" /c | Out-Null
+            }
+        }
+
+        # Si el usuario actual no tenia permisos explicitos, asigna FullControl
+        if (-not $usuarioTienePermiso) {
+            Write-Host "El usuario actual no tenia permisos en $($item.FullName). Asignando FullControl..." -ForegroundColor Yellow
+            icacls $item.FullName /grant "'$usuarioActual':(OI)(CI)F" /c | Out-Null
+        }
+    }
+    Write-Host "Limpieza de permisos completada." -ForegroundColor Green
+
+    # ---------------------------------------------------------------------------------------------------
+    # Aplicar Permisos de Linea Base desde CSV
+    # ---------------------------------------------------------------------------------------------------
+    Write-Host "`n----- 4. Aplicando permisos de Linea Base desde CSV -----" -ForegroundColor Cyan
+    if (-not (Test-Path -Path $CSV_LineaBase)) {
+        Write-Error "El archivo CSV de linea base '$CSV_LineaBase' no fue encontrado." -ForegroundColor Red
+        throw
+    }
     $lineaBase = Import-Csv -Path $CSV_LineaBase
     foreach ($row in $lineaBase) {
-        $grupo = $row.Grupo
-        $permiso = $row.Permiso
-        Write-Host "   -> Aplicando permiso '$permiso' a '$grupo'..."
-        # /grant:r reemplaza los permisos existentes para este grupo.
+        $grupo = $row.'Grupo o Usuario'
+        $permiso = $row.Permisos
+        if (-not $grupo -or -not $permiso) { continue }
+        Write-Host "`tAplicando permiso '$permiso' a '$grupo'..."
         icacls $RutaObjetivo /grant:r "$grupo`:$permiso" /t /c
     }
-    Write-Host " Permisos de linea base aplicados." -ForegroundColor Green
+    Write-Host "Permisos de linea base aplicados." -ForegroundColor Green
 
-    #------------------------------------------------------------------------------------------------------
-    # Punto 5: Aplicar Permisos Especificos desde CSV
-    # Lee el segundo CSV y aplica permisos adicionales o especificos.
-    #------------------------------------------------------------------------------------------------------
-    Write-Host "`n[Paso 5/5] Aplicando permisos Especificos desde '$CSV_Grupos'..." -ForegroundColor Cyan
+    # ---------------------------------------------------------------------------------------------------
+    # Aplicar Permisos Especificos desde CSV
+    # ---------------------------------------------------------------------------------------------------
+    Write-Host "`n----- 5. Aplicando permisos Especificos desde CSV -----" -ForegroundColor Cyan
     if (-not (Test-Path -Path $CSV_Grupos)) {
-        throw "El archivo CSV de grupos especificos '$CSV_Grupos' no fue encontrado."
+        Write-Error "El archivo CSV de grupos especificos '$CSV_Grupos' no fue encontrado." -ForegroundColor Red
+        throw
     }
-
     $gruposEspecificos = Import-Csv -Path $CSV_Grupos
     foreach ($row in $gruposEspecificos) {
-        # Usamos los nombres de columna del flujo
         $entidad = $row.'Grupo o Usuario'
         $permiso = $row.Permisos
-        Write-Host "   -> Aplicando permiso '$permiso' a '$entidad'..."
-        icacls $RutaObjetivo /grant:r "$entidad`:$permiso" /t /c
+        if (-not $entidad -or -not $permiso) { continue }
+        Write-Host "`tAplicando permiso '$permiso' a '$entidad'..."
+        icacls $RutaObjetivo /grant "$entidad`:$permiso" /t /c
     }
-    Write-Host " Permisos especificos aplicados.`n`n" -ForegroundColor Green
+    Write-Host "Permisos especificos aplicados." -ForegroundColor Green
 
-}
-catch {
-    # Captura cualquier error que ocurra en el bloque try
-    Write-Error "¡ERROR FATAL! Ocurrio una excepcion durante la ejecucion:"
+} catch {
+    Write-Error "¡ERROR! Ocurrio una excepcion durante la ejecucion:"
     Write-Error $_.Exception.Message
     Write-Warning "El proceso se ha detenido. Revisa el log '$logPath' para mas detalles."
-    Write-Warning "Puedes usar el archivo de respaldo '$backupPath' para ejecutar un rollback si es necesario."
+    if ($backupPath) {
+        Write-Warning "Puedes usar el archivo de respaldo '$backupPath' para ejecutar un rollback si es necesario."
+    }
+} finally {
+    if ($transcriptStarted) {
+        Stop-Transcript
+    }
 }
-finally {
-    # Este bloque siempre se ejecuta, haya o no errores.
-    Stop-Transcript
-}
 
 
-
-# Prueba 1
-
-# .\main.ps1 -RutaObjetivo "C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f" -Verbose
-
-# C:\Everyone\BP_TEST\SFTP_BP\dir_c2278304\dir_7d146f60\dir_b3c9235f Sin herencia, con grupos definidos
-# MICROSOFT\usuario1 con permisos de Full Control
+# .\script1.ps1 -RutaObjetivo "E:\BP_SFTP\Aplicativos\Bancs" -Verbose
+# .\script1.ps1 -Rollback -RutaObjetivo "E:\BP_SFTP\Aplicativos" -RutaBackup ".\backups\" -Verbose
