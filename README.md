@@ -51,14 +51,14 @@ Este repositorio contiene **`main.ps1`**, un script de PowerShell que estandariz
 
 ### Parámetros
 
-| Parámetro        | Tipo     | Obligatorio | Descripción                                                                                          |
-| ---------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------- |
-| `-RutaObjetivo`  | `string` | Sí          | Carpeta raíz donde se aplicarán los cambios.                                                         |
-| `-CSV_LineaBase` | `string` | No          | Ruta al CSV con permisos de línea base. Predeterminado: `./config/config-lb.csv`.                    |
-| `-CSV_Grupos`    | `string` | No          | Ruta al CSV con permisos específicos por grupo/usuario. Predeterminado: `./config/config-group.csv`. |
-| `-Rollback`      | `switch` | No          | Activa modo restauración de ACL (requiere `-RutaBackup`).                                            |
-| `-RutaBackup`    | `string` | Condicional | Ruta al archivo de respaldo generado previamente por el script.                                      |
-| `-Verbose`       | `switch` | No          | Muestra salida detallada en consola.                                                                 |
+| Parámetro        | Tipo     | Descripción                                                                                          |
+| ---------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `-RutaObjetivo`  | `string` | Carpeta raíz donde se aplicarán los cambios.                                                         |
+| `-CSV_LineaBase` | `string` | Ruta al CSV con permisos de línea base. Predeterminado: `./config/config-lb.csv`.                    |
+| `-CSV_Grupos`    | `string` | Ruta al CSV con permisos específicos por grupo/usuario. Predeterminado: `./config/config-group.csv`. |
+| `-Rollback`      | `switch` | Activa modo restauración de ACL (requiere `-RutaBackup`).                                            |
+| `-RutaBackup`    | `string` | Ruta al archivo de respaldo generado previamente por el script.                                      |
+| `-Verbose`       | `switch` | Muestra salida detallada en consola.                                                                 |
 
 ---
 
