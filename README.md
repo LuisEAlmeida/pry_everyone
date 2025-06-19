@@ -33,8 +33,8 @@ Este repositorio contiene **`main.ps1`**, un script de PowerShell que estandariz
 ├─ config
 │  ├─ config-lb.csv        # Permisos de línea base
 │  └─ config-group.csv     # Permisos específicos
-├─ backups\                # Respaldos generados (auto‑creado)
-└─ logs\                   # Bitácoras de ejecución (auto‑creado)
+├─ backups\                # Respaldos generados
+└─ logs\                   # Bitácoras de ejecución
 ```
 
 ---
@@ -82,10 +82,10 @@ Debe contener **solo dos columnas** con encabezados exactamente como se muestra:
 "svc_backup","(CI)R"
 ```
 
-> > **Leyenda de accesos abreviados y acciones permitidas**
->
-> A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué operaciones permite en el Explorador de Windows y **qué puede hacer un usuario cuando se conecta con WinSCP** (ya sea vía SFTP o uso local) bajo esas mismas ACL.  Las descripciones asumen que _no existen reglas DENY implícitas_ y que el usuario hereda los permisos señalados.
->
+**Leyenda de accesos abreviados y acciones permitidas**
+
+A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué operaciones permite en el Explorador de Windows y **qué puede hacer un usuario cuando se conecta con WinSCP** (ya sea vía SFTP o uso local) bajo esas mismas ACL.  Las descripciones asumen que _no existen reglas DENY implícitas_ y que el usuario hereda los permisos señalados.
+
 > | Código                                | Derechos NTFS agregados (_high‑level_)                                                                                                                     | Operaciones Windows (GUI/CLI)                                                                                                                        | Acciones WinSCP                                                                                                                                                                    |
 > | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | **`F` – Full Control**                | Todos los derechos estándar más los avanzados: <br>Read, Write, Execute, Delete, Change Permissions (WRITE_DAC), Take Ownership (WRITE_OWNER), Synchronize | Listar, leer/abrir, crear, modificar, eliminar, renombrar, cambiar permisos, tomar propiedad.                                                        | Listar directorios, descargar, cargar (upload), sobrescribir, renombrar, mover, eliminar, cambiar **atributos/ACL** desde la pestaña _Properties_ de WinSCP.                       |
@@ -97,7 +97,7 @@ Debe contener **solo dos columnas** con encabezados exactamente como se muestra:
 > | **`DC` – Delete Subfolders & Files**  | Delete Child                                                                                                                                               | Eliminar **cualquier** ítem hijo dentro del directorio aun cuando no tenga derecho `D` en cada objeto.                                               | Borrar carpetas/archivos subordinados mediante WinSCP.                                                                                                                             |
 > | **`RA` – Read Attributes**            | Read Attributes                                                                                                                                            | Ver atributos básicos (solo/oculto, tamaño, timestamps).                                                                                             | Listado de columnas con tamaño/fecha funciona.                                                                                                                                     |
 > | **`REA` – Read Extended Attributes**  | Read EA                                                                                                                                                    | Ver ADS/propiedades extendidas.                                                                                                                      | WinSCP muestra/despliega etiquetas ADS cuando corresponda.                                                                                                                         |
-> | **`WA` – Write Attributes**           | Write Attributes                                                                                                                                           | Cambiar fecha/hora, atributo solo/oculto, etc.                                                                                                       | Permite modificar timestamps desde _Properties_ > _Set permissions_.                                                                                                               |
+> | **`WA` – Write Attributes**           | Write Attributes                                                                                                                                           | Cambiar fecha/hora, atributo solo/oculto, etc.                                                                                                       | Permite modificar timestamps desde _Properties_ _Set permissions_.                                                                                                                 |
 > | **`WEA` – Write Extended Attributes** | Write EA                                                                                                                                                   | Guardar flujos alternos u «Otras propiedades».                                                                                                       | WinSCP puede preservar/metadatos ADS al cargar si el servidor lo soporta.                                                                                                          |
 > | **`WDAC` – Change Permissions**       | WRITE_DAC                                                                                                                                                  | Cambiar ACL a otros usuarios/grupos.                                                                                                                 | En la ficha _Properties → Permissions_ de WinSCP aparece habilitada la edición.                                                                                                    |
 > | **`WO` – Take Ownership**             | WRITE_OWNER                                                                                                                                                | Tomar la propiedad del objeto.                                                                                                                       | WinSCP mostrará opción _Properties → Set owner_ (solo en SFTP con privilegios).                                                                                                    |
@@ -110,19 +110,21 @@ Debe contener **solo dos columnas** con encabezados exactamente como se muestra:
 > | `(CI)`   | _Container Inheritance_ – se aplica a subcarpetas (contenedores).             | `(CI)RX` ↔ solo subcarpetas heredan **Read/Execute**.                    |
 > | `(IO)`   | _Inherit Only_ – la ACE **no** afecta al contenedor actual, solo a los hijos. | `(CI)(IO)RX` ↔ la carpeta actual no expone RX, las subcarpetas sí.       |
 > | `(NP)`   | _No Propagate_ – hijos directos heredan, nietos no.                           | `(CI)(NP)RX` ↔ subcarpetas inmediatas heredan RX, niveles inferiores no. |
+
+---
+
 >
-> ---
->
-> ### Combinaciones frecuentes y su efecto en WinSCP
->
-> | ACE completa    | Efecto resumido                                                       | Uso típico                                                                       | Operaciones WinSCP                                                                            |
-> | --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-> | `(OI)(CI)F`     | Hereda **Full Control** a todos los niveles.                          | Carpetas de administradores o servicios de copia de seguridad.                   | Libre total: listar, subir, descargar, renombrar, borrar, editar ACL.                         |
-> | `(OI)(CI)M`     | Hereda **Modify** completo.                                           | Repositorios de código, carpetas de proyectos colaborativos.                     | Todas las operaciones excepto cambiar ACL/propietario.                                        |
-> | `(CI)(IO)RX`    | Concede solo RX a subcarpetas; carpeta raíz queda sin acceso directo. | Share donde la raíz es un _junction_ y solo se entra a subdirectorios concretos. | El usuario puede navegar y descargar dentro de subcarpetas pero la raíz no aparece accesible. |
-> | `(OI)(CI)R`     | Lectura recursiva sin ejecución.                                      | Repositorio de artefactos de _build_ o librerías.                                | Solo descarga/listado; upload y delete bloqueados.                                            |
-> | `(OI)(CI)(NP)W` | Puede crear/editar en primer nivel, no en nietos.                     | Recepción de archivos (_drop‑zone_).                                             | Subir archivos a la carpeta raíz; no puede crear subcarpetas dentro de subdirectorios.        |
->
+
+### Combinaciones frecuentes y su efecto en WinSCP
+
+| ACE completa    | Efecto resumido                                                       | Uso típico                                                                       | Operaciones WinSCP                                                                            |
+| --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `(OI)(CI)F`     | Hereda **Full Control** a todos los niveles.                          | Carpetas de administradores o servicios de copia de seguridad.                   | Libre total: listar, subir, descargar, renombrar, borrar, editar ACL.                         |
+| `(OI)(CI)M`     | Hereda **Modify** completo.                                           | Repositorios de código, carpetas de proyectos colaborativos.                     | Todas las operaciones excepto cambiar ACL/propietario.                                        |
+| `(CI)(IO)RX`    | Concede solo RX a subcarpetas; carpeta raíz queda sin acceso directo. | Share donde la raíz es un _junction_ y solo se entra a subdirectorios concretos. | El usuario puede navegar y descargar dentro de subcarpetas pero la raíz no aparece accesible. |
+| `(OI)(CI)R`     | Lectura recursiva sin ejecución.                                      | Repositorio de artefactos de _build_ o librerías.                                | Solo descarga/listado; upload y delete bloqueados.                                            |
+| `(OI)(CI)(NP)W` | Puede crear/editar en primer nivel, no en nietos.                     | Recepción de archivos (_drop‑zone_).                                             | Subir archivos a la carpeta raíz; no puede crear subcarpetas dentro de subdirectorios.        |
+
 > **Sugerencia:** Cuando diseñes permisos para accesos SFTP/WinSCP procura otorgar siempre rights por grupos, añadiendo `(OI)(CI)` para herencia recursiva y **evitando** asignar `F` a cuentas de usuario finales salvo necesidad explícita.
 >
 > \--------|-------------|
@@ -203,9 +205,3 @@ Debe contener **solo dos columnas** con encabezados exactamente como se muestra:
 | "Access is denied" al ejecutar `icacls` | Falta de privilegios            | Ejecutar la consola **como Administrador**.                                      |
 | "Invalid parameter /grant\:r"           | Sintaxis de permisos incorrecta | Verifica la columna **Permisos** en el CSV (mayúsculas, paréntesis, dos puntos). |
 | Rollback falla "file not found"         | Ruta errónea al backup          | Usa la ruta completa al archivo `.txt` generado.                                 |
-
----
-
-## Créditos y Licencia
-
-Desarrollado por **\[Tu Nombre / Equipo]**. Distribuido bajo la licencia MIT. Revisa `LICENSE` para más detalles.
