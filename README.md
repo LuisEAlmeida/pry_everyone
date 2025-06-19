@@ -82,8 +82,6 @@ Debe contener **solo dos columnas** con encabezados exactamente como se muestra:
 "svc_backup","(CI)R"
 ```
 
-**Leyenda de accesos abreviados y acciones permitidas**
-
 A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué operaciones permite en el Explorador de Windows y **qué puede hacer un usuario cuando se conecta con WinSCP** (ya sea vía SFTP o uso local) bajo esas mismas ACL.  Las descripciones asumen que _no existen reglas DENY implícitas_ y que el usuario hereda los permisos señalados.
 
 | Código                                | Derechos NTFS agregados (_high‑level_)                                                                                                                     | Operaciones Windows (GUI/CLI)                                                                                                                        | Acciones WinSCP                                                                                                                                                                    |
@@ -125,16 +123,6 @@ A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué
 | `(OI)(CI)R`     | Lectura recursiva sin ejecución.                                      | Repositorio de artefactos de _build_ o librerías.                                | Solo descarga/listado; upload y delete bloqueados.                                            |
 | `(OI)(CI)(NP)W` | Puede crear/editar en primer nivel, no en nietos.                     | Recepción de archivos (_drop‑zone_).                                             | Subir archivos a la carpeta raíz; no puede crear subcarpetas dentro de subdirectorios.        |
 
-> **Sugerencia:** Cuando diseñes permisos para accesos SFTP/WinSCP procura otorgar siempre rights por grupos, añadiendo `(OI)(CI)` para herencia recursiva y **evitando** asignar `F` a cuentas de usuario finales salvo necesidad explícita.
->
-> \--------|-------------|
-> \| `F` | Full Control |
-> \| `M` | Modify |
-> \| `RX` | Read & Execute |
-> \| `R` | Read |
-> \| `W` | Write |
-> \| Prefijos `(OI)`/`(CI)` | Object Inheritance / Container Inheritance |
-
 ---
 
 ## Ejemplos de Uso
@@ -159,7 +147,7 @@ A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué
 
 ```powershell
 .\main.ps1 -Rollback \
-  -RutaObjetivo "D:\Datos\Proyectos\Alpha" \
+  -RutaObjetivo "D:\Datos\Proyectos" \
   -RutaBackup ".\backups\backup-permisos-20250619-120501.txt" \
   -Verbose
 ```
@@ -168,30 +156,16 @@ A continuación se detalla **qué derechos NTFS incluye cada abreviatura**, qué
 
 ## Flujo interno de trabajo
 
-1. **Verificación de privilegios** – Confirma que la sesión se ejecuta como Administrador.
-2. **Creación de carpetas** – Genera `backups\` y `logs\` si no existen.
-3. **Inicio de transcript** – Todo se registra en `logs\log-cambios-<timestamp>.txt`.
-4. **Backup de ACL** – `icacls <ruta> /save ...` guarda el estado previo.
-5. **Toma de propiedad & ruptura de herencia** – `takeown` + `icacls /setowner` + `icacls /inheritance:r`.
-6. **Limpieza de permisos** – Elimina ACE explícitas, excepto las del usuario que ejecuta el script.
-7. **Aplicación de permisos de Línea Base** – Lee `config-lb.csv` y aplica con `/grant:r`.
-8. **Aplicación de permisos Específicos** – Lee `config-group.csv` y aplica con `/grant`.
-9. **Fin de transcript** – Cierra log; backup disponible para rollback.
-
----
-
-## Carpetas generadas
-
-| Carpeta    | Contenido                                                          |
-| ---------- | ------------------------------------------------------------------ |
-| `backups\` | Archivos `.txt` resultado de `icacls /save`. Úsalos para rollback. |
-| `logs\`    | Transcripts detallados con todas las operaciones ejecutadas.       |
-
----
+1. **Inicio de transcript** – Todo se registra en `logs\log-cambios-<timestamp>.txt`.
+2. **Backup de ACL** – `icacls <ruta> /save ...` guarda el estado previo.
+3. **Toma de propiedad & ruptura de herencia** – `takeown` + `icacls /setowner` + `icacls /inheritance:r`.
+4. **Limpieza de permisos** – Elimina ACE explícitas, excepto las del usuario que ejecuta el script.
+5. **Aplicación de permisos de Línea Base** – Lee `config-lb.csv` y aplica con `/grant:r`.
+6. **Aplicación de permisos Específicos** – Lee `config-group.csv` y aplica con `/grant`.
+7. **Fin de transcript** – Cierra log; backup disponible para rollback.
 
 ## Buenas prácticas
 
-- **Prueba primero en un entorno de laboratorio.**
 - Mantén los **CSV bajo control de versiones** para auditar cambios de permisos.
 - Conserva los **archivos de backup** en un repositorio seguro.
 - Usa `-Verbose` para diagnósticos; revisa los logs ante errores.
