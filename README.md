@@ -60,7 +60,7 @@ Este repositorio contiene **`main.ps1`**, un script de PowerShell que estandariz
 | `-RutaBackup`    | `string` | Ruta al archivo de respaldo generado previamente por el script. |
 | `-Verbose`       | `switch` | Muestra salida detallada en consola.                            |
 
-## **Nota**: Al restaurar permisos debes situarte un nivel por encima de la carpeta afectada. Por ejemplo, si los cambios se realizaron en `F:\BP\Aplicativos\Bancs`, el valor correcto para `-RutaObjetivo` durante el rollback será `F:\BP\Aplicativos`. Esto garantiza que `icacls /restore` pueda reaplicar las ACE a todos los elementos originales.
+**Nota**: Al restaurar permisos debes situarte un nivel por encima de la carpeta afectada. Por ejemplo, si los cambios se realizaron en `F:\BP\Aplicativos\Bancs`, el valor correcto para `-RutaObjetivo` durante el rollback será `F:\BP\Aplicativos`. Esto garantiza que `icacls /restore` pueda reaplicar las ACE a todos los elementos originales.
 
 ## Formato de los CSV
 
